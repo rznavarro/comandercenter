@@ -1,0 +1,353 @@
+import { LeadRecord, EstrategiaRecord, ClienteRecord } from '../types';
+import { parseAirtableDate, normalizeStage } from '../utils/airtableParser';
+
+// Raw leads simulating Airtable records
+const rawLeadsData = [
+  {
+    id: 'lead_1',
+    nombreCliente: 'progi',
+    whatsappNumero: '+56 9 8452 1190',
+    etapa: 'venta',
+    horaEnvio: '1:39 pm',
+    dia: 'miércoles 2 de septiembre',
+    diasAgo: 6,
+    notas: 'Cliente cerrado en Tramo $50.000. Pago único completado al 100%. Web y sistema entregado.',
+  },
+  {
+    id: 'lead_2',
+    nombreCliente: 'nissi propiedades',
+    whatsappNumero: '+56 9 7321 4488',
+    etapa: 'venta',
+    horaEnvio: '11:15 am',
+    dia: 'viernes 4 de septiembre',
+    diasAgo: 4,
+    notas: 'Cliente en Tramo $50.000. Pago único primera parte ($25.000 abonados, 50% restante contra entrega).',
+  },
+  {
+    id: 'lead_3',
+    nombreCliente: 'mainhouse',
+    whatsappNumero: '+56 9 9123 7741',
+    etapa: 'venta',
+    horaEnvio: '3:45 pm',
+    dia: 'domingo 6 de septiembre',
+    diasAgo: 2,
+    notas: 'Cliente en Tramo $50.000 bajo modelo de suscripción mensual activa ($30.000/mes).',
+  },
+  {
+    id: 'lead_7',
+    nombreCliente: 'Cafetería Raíz de Origen',
+    whatsappNumero: '+56 9 5566 7788',
+    etapa: 'demo enviada',
+    horaEnvio: '12:30 pm',
+    dia: 'jueves 2 de septiembre',
+    diasAgo: 7,
+    notas: 'Se le mandó demo interactiva de carta digital y pedidos online. Pendiente decisión de socios.',
+  },
+  {
+    id: 'lead_8',
+    nombreCliente: 'Constructora del Sur',
+    whatsappNumero: '+56 9 6677 8899',
+    etapa: 'demo enviada',
+    horaEnvio: '5:20 pm',
+    dia: 'viernes 3 de septiembre',
+    diasAgo: 6,
+    notas: 'Vio el video Loom de 2 minutos. Preguntó por plazos de entrega.',
+  },
+  {
+    id: 'lead_9',
+    nombreCliente: 'Automotriz San Cristóbal',
+    whatsappNumero: '+56 9 4433 2211',
+    etapa: 'demo enviada',
+    horaEnvio: '11:40 am',
+    dia: 'lunes 6 de septiembre',
+    diasAgo: 3,
+    notas: 'Demo enviada. Le gustó el diseño minimalista, revisará presupuesto con gerencia.',
+  },
+  {
+    id: 'lead_10',
+    nombreCliente: 'Consultora Jurídica Silva & Asoc.',
+    whatsappNumero: '+56 9 7890 1234',
+    etapa: 'demo enviada',
+    horaEnvio: '3:05 pm',
+    dia: 'martes 7 de septiembre',
+    diasAgo: 2,
+    notas: 'Enviada maqueta Figma y demo funcional. Muy receptivo.',
+  },
+  {
+    id: 'lead_11',
+    nombreCliente: 'Pastelería Dulce Momento',
+    whatsappNumero: '+56 9 3344 5566',
+    etapa: 'respuesta positiva',
+    horaEnvio: '10:00 am',
+    dia: 'lunes 30 de agosto',
+    diasAgo: 10,
+    notas: 'Dijo que necesita urgente renovar su web. Falta enviar demo personalizada (¡Urgente seguimiento!).',
+  },
+  {
+    id: 'lead_12',
+    nombreCliente: 'Restaurante Fuego Criollo',
+    whatsappNumero: '+56 9 8899 0011',
+    etapa: 'respuesta positiva',
+    horaEnvio: '1:10 pm',
+    dia: 'miércoles 1 de septiembre',
+    diasAgo: 8,
+    notas: 'Preguntó precios y opciones de pago. Sin seguimiento hace más de 4 días.',
+  },
+  {
+    id: 'lead_13',
+    nombreCliente: 'Centro Veterinario Mascotas Felices',
+    whatsappNumero: '+56 9 9900 1122',
+    etapa: 'respuesta positiva',
+    horaEnvio: '4:40 pm',
+    dia: 'jueves 2 de septiembre',
+    diasAgo: 7,
+    notas: 'Interesados en agendamiento para urgencias 24h. Re-contactar hoy.',
+  },
+  {
+    id: 'lead_14',
+    nombreCliente: 'Distribuidora Mayorista El Trébol',
+    whatsappNumero: '+56 9 2233 4455',
+    etapa: 'respuesta positiva',
+    horaEnvio: '11:55 am',
+    dia: 'lunes 6 de septiembre',
+    diasAgo: 3,
+    notas: 'Quiere catálogo digital B2B. Agendada llamada para coordinar requerimientos.',
+  },
+  {
+    id: 'lead_15',
+    nombreCliente: 'Kinesiología Integral Austral',
+    whatsappNumero: '+56 9 6611 2233',
+    etapa: 'respuesta positiva',
+    horaEnvio: '2:50 pm',
+    dia: 'martes 7 de septiembre',
+    diasAgo: 2,
+    notas: 'Respondió: "Hola, me interesa mucho su propuesta, ¿tienen ejemplos de centros médicos?"',
+  },
+  {
+    id: 'lead_16',
+    nombreCliente: 'Cervecería Artesanal Pampa',
+    whatsappNumero: '+56 9 1144 7788',
+    etapa: 'respuesta positiva',
+    horaEnvio: '4:15 pm',
+    dia: 'martes 7 de septiembre',
+    diasAgo: 2,
+    notas: 'Buscan posicionar su marca para distribución en supermercados.',
+  },
+  {
+    id: 'lead_17',
+    nombreCliente: 'Ferretería Central Maipú',
+    whatsappNumero: '+56 9 7788 9900',
+    etapa: 'contactado',
+    horaEnvio: '9:30 am',
+    dia: 'martes 31 de agosto',
+    diasAgo: 9,
+    notas: 'Mensaje inicial de prospección enviado. Visto sin respuesta. Candidato para reenganche.',
+  },
+  {
+    id: 'lead_18',
+    nombreCliente: 'Imprenta Gráfica Express',
+    whatsappNumero: '+56 9 5544 3322',
+    etapa: 'contactado',
+    horaEnvio: '11:00 am',
+    dia: 'miércoles 1 de septiembre',
+    diasAgo: 8,
+    notas: 'Mensaje inicial enviado. Requiere regla de reenganche de los 3 días.',
+  },
+  {
+    id: 'lead_19',
+    nombreCliente: 'Agencia de Viajes Ruta Austral',
+    whatsappNumero: '+56 9 3322 1100',
+    etapa: 'contactado',
+    horaEnvio: '2:20 pm',
+    dia: 'jueves 2 de septiembre',
+    diasAgo: 7,
+    notas: 'Mensaje enviado a encargado de marketing. Sin respuesta.',
+  },
+  {
+    id: 'lead_20',
+    nombreCliente: 'Escuela de Idiomas Polyglot',
+    whatsappNumero: '+56 9 8877 6655',
+    etapa: 'contactado',
+    horaEnvio: '10:45 am',
+    dia: 'lunes 6 de septiembre',
+    diasAgo: 3,
+    notas: 'Contactado ayer por WhatsApp.',
+  },
+  {
+    id: 'lead_21',
+    nombreCliente: 'Muebles & Diseño Nórdico',
+    whatsappNumero: '+56 9 4455 6677',
+    etapa: 'contactado',
+    horaEnvio: '1:15 pm',
+    dia: 'martes 7 de septiembre',
+    diasAgo: 2,
+    notas: 'Contactado con mensaje personalizado sobre su actual presencia digital.',
+  },
+  {
+    id: 'lead_22',
+    nombreCliente: 'Lavandería EcoClean',
+    whatsappNumero: '+56 9 2211 0099',
+    etapa: 'contactado',
+    horaEnvio: '3:30 pm',
+    dia: 'martes 7 de septiembre',
+    diasAgo: 2,
+    notas: 'Prospección saliente por WhatsApp business.',
+  },
+  {
+    id: 'lead_23',
+    nombreCliente: 'Restobar 360 Providencia',
+    whatsappNumero: '+56 9 6655 4433',
+    etapa: 'respuesta negativa',
+    horaEnvio: '12:10 pm',
+    dia: 'lunes 30 de agosto',
+    diasAgo: 10,
+    notas: 'Respondió: "Ya renovamos la web hace 2 meses con otra agencia."',
+  },
+  {
+    id: 'lead_24',
+    nombreCliente: 'Librería & Papelería Antártica',
+    whatsappNumero: '+56 9 9988 7766',
+    etapa: 'respuesta negativa',
+    horaEnvio: '3:15 pm',
+    dia: 'martes 31 de agosto',
+    diasAgo: 9,
+    notas: 'Respondió: "No tenemos presupuesto este trimestre."',
+  },
+  {
+    id: 'lead_25',
+    nombreCliente: 'Zapatería Cuero & Estilo',
+    whatsappNumero: '+56 9 1122 3344',
+    etapa: 'respuesta negativa',
+    horaEnvio: '10:35 am',
+    dia: 'viernes 3 de septiembre',
+    diasAgo: 6,
+    notas: 'Respondió: "No nos interesa por ahora, gracias."',
+  },
+  {
+    id: 'lead_26',
+    nombreCliente: 'Seguridad & Alarmas Protec',
+    whatsappNumero: '+56 9 4411 8822',
+    etapa: 'respuesta negativa',
+    horaEnvio: '4:50 pm',
+    dia: 'lunes 6 de septiembre',
+    diasAgo: 3,
+    notas: 'Cuentan con equipo interno de TI.',
+  },
+];
+
+export const DEMO_LEADS: LeadRecord[] = rawLeadsData.map((item) => {
+  const { iso, dateObj } = parseAirtableDate(item.dia);
+  const diasSinSeguimiento = item.diasAgo;
+  const etapa = normalizeStage(item.etapa);
+  const requiereReenganche =
+    diasSinSeguimiento >= 3 &&
+    etapa !== 'venta' &&
+    etapa !== 'respuesta negativa';
+
+  return {
+    id: item.id,
+    nombreCliente: item.nombreCliente,
+    whatsappNumero: item.whatsappNumero,
+    etapa,
+    horaEnvio: item.horaEnvio,
+    dia: iso,
+    rawDia: item.dia,
+    fechaObj: dateObj,
+    diasSinSeguimiento,
+    requiereReenganche,
+    notas: item.notas,
+  };
+});
+
+// Raw Estrategia data simulating daily prospection
+const rawEstrategiaData = [
+  { dia: '2026-08-23', rawDia: 'domingo 23 de agosto', cantidad: 0, pos: 0, neg: 0, ventas: 0 },
+  { dia: '2026-08-24', rawDia: 'lunes 24 de agosto', cantidad: 35, pos: 6, neg: 4, ventas: 0 },
+  { dia: '2026-08-25', rawDia: 'martes 25 de agosto', cantidad: 42, pos: 9, neg: 5, ventas: 0 },
+  { dia: '2026-08-26', rawDia: 'miércoles 26 de agosto', cantidad: 50, pos: 12, neg: 7, ventas: 0 },
+  { dia: '2026-08-27', rawDia: 'jueves 27 de agosto', cantidad: 48, pos: 10, neg: 6, ventas: 0 },
+  { dia: '2026-08-28', rawDia: 'viernes 28 de agosto', cantidad: 38, pos: 8, neg: 8, ventas: 0 },
+  { dia: '2026-08-29', rawDia: 'sábado 29 de agosto', cantidad: 0, pos: 0, neg: 0, ventas: 0 },
+  { dia: '2026-08-30', rawDia: 'domingo 30 de agosto', cantidad: 0, pos: 0, neg: 0, ventas: 0 },
+  { dia: '2026-08-31', rawDia: '31/8/2026', cantidad: 60, pos: 18, neg: 5, ventas: 0 },
+  { dia: '2026-09-01', rawDia: '1/9/2026', cantidad: 55, pos: 14, neg: 8, ventas: 0 },
+  { dia: '2026-09-02', rawDia: '2/9/2026', cantidad: 52, pos: 13, neg: 6, ventas: 1 }, // Cierre 1: progi ($50.000)
+  { dia: '2026-09-03', rawDia: '3/9/2026', cantidad: 45, pos: 9, neg: 9, ventas: 0 },
+  { dia: '2026-09-04', rawDia: '4/9/2026', cantidad: 40, pos: 8, neg: 7, ventas: 1 }, // Cierre 2: nissi propiedades ($25.000)
+  { dia: '2026-09-05', rawDia: '5/9/2026', cantidad: 0, pos: 0, neg: 0, ventas: 0 },
+  { dia: '2026-09-06', rawDia: '6/9/2026', cantidad: 20, pos: 5, neg: 2, ventas: 1 }, // Cierre 3: mainhouse ($30.000)
+  { dia: '2026-09-07', rawDia: '7/9/2026', cantidad: 65, pos: 21, neg: 6, ventas: 0 }, // Gran volumen de respuestas
+  { dia: '2026-09-08', rawDia: '8/9/2026', cantidad: 48, pos: 12, neg: 4, ventas: 0 }, // Hoy
+];
+
+export const DEMO_ESTRATEGIA: EstrategiaRecord[] = rawEstrategiaData.map((item, index) => {
+  const { iso, dateObj } = parseAirtableDate(item.dia);
+  const mensajes = item.cantidad;
+  const pos = item.pos;
+  const neg = item.neg;
+  const ventas = item.ventas;
+
+  return {
+    id: `strat_${index + 1}`,
+    dia: iso || item.dia,
+    rawDia: item.rawDia,
+    fechaObj: dateObj,
+    cantidadMensajes: mensajes,
+    respuestasPositivas: pos,
+    respuestasNegativas: neg,
+    ventas: ventas,
+    tasaRespuesta: mensajes > 0 ? (pos + neg) / mensajes : 0,
+    tasaPositiva: mensajes > 0 ? pos / mensajes : 0,
+    tasaNegativa: mensajes > 0 ? neg / mensajes : 0,
+    tasaConversion: mensajes > 0 ? ventas / mensajes : 0,
+  };
+});
+
+// Raw Clientes data matching Airtable table 3 with exact 3 user clients
+export const DEMO_CLIENTES: ClienteRecord[] = [
+  {
+    id: 'cli_1',
+    name: 'progi',
+    monto: 50000,
+    tipoPago: 'pago unico',
+    tramo: 'tramo 50.000',
+    whatsappUrl: 'https://api.whatsapp.com/send?phone=56984521190',
+    pantallazoUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80',
+    pantallazoNombre: 'comprobante_banco_progi_50k.png',
+    notas: 'Pago único completado ($50.000 CLP). Web y sistema progi entregado con éxito.',
+    urlWeb: 'https://progi.cl',
+    repositorioGithub: 'https://github.com/vortexia-agency/progi-web',
+    fechaPago: '2026-09-02',
+    rawFechaPago: '2/9/2026',
+  },
+  {
+    id: 'cli_2',
+    name: 'nissi propiedades',
+    monto: 25000,
+    tipoPago: 'pago unico primera parte',
+    tramo: 'tramo 50.000',
+    whatsappUrl: 'https://api.whatsapp.com/send?phone=56973214488',
+    pantallazoUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?auto=format&fit=crop&w=600&q=80',
+    pantallazoNombre: 'transferencia_anticipo_nissi_25k.png',
+    notas: 'Pago único primera parte ($25.000 abonados de $50.000). Portal inmobiliario nissi propiedades en desarrollo.',
+    urlWeb: 'https://nissipropiedades.cl',
+    repositorioGithub: 'https://github.com/vortexia-agency/nissi-propiedades',
+    fechaPago: '2026-09-04',
+    rawFechaPago: '4/9/2026',
+  },
+  {
+    id: 'cli_3',
+    name: 'mainhouse',
+    monto: 30000,
+    tipoPago: 'suscripcion',
+    tramo: 'tramo 50.000',
+    whatsappUrl: 'https://api.whatsapp.com/send?phone=56991237741',
+    pantallazoUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=600&q=80',
+    pantallazoNombre: 'comprobante_suscripcion_mainhouse_30k.png',
+    notas: 'Suscripción mensual activa ($30.000 CLP/mes). Mantención y optimizaciones continuas.',
+    urlWeb: 'https://mainhouse.cl',
+    repositorioGithub: 'https://github.com/vortexia-agency/mainhouse-portal',
+    fechaPago: '2026-09-06',
+    rawFechaPago: '6/9/2026',
+  },
+];

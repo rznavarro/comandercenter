@@ -1,0 +1,6 @@
+{
+  "name": "Vortexia Command Center",
+  "description": "Dashboard de prospección y métricas para Vortexia: embudo de leads, análisis de estrategia, facturación y escalera de precios conectado a Airtable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
